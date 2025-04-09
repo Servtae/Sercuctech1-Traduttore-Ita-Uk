@@ -1,0 +1,75 @@
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Traduttore ITA → UKR - SerCucTech</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+        h1 { color: #2b5c9c; }
+        textarea, input, button { width: 100%; margin-top: 10px; padding: 10px; font-size: 16px; }
+        #output { font-size: 22px; margin-top: 20px; }
+        .lettera { display: inline-block; transition: font-size 0.3s; }
+        .ingrandita { font-size: 47px !important; }
+    </style>
+</head>
+<body>
+    <h1>Traduttore ITA → UKR</h1>
+    <label for="input">Inserisci parola in italiano:</label>
+    <input type="text" id="input" placeholder="es. ciao">
+    <button onclick="traduci()">Traduci</button>
+    <div id="output"></div>
+    <button onclick="pronuncia()">Pronuncia parola</button>
+    <button onclick="scandisci()">Pronuncia lettere (scandite)</button>
+
+    <script>
+        const dizionario = {
+            "ciao": "привіт",
+            "amico": "друг",
+            "grazie": "дякую",
+            "scuola": "школа",
+            "madre": "мати",
+            "padre": "батько",
+            "pane": "хліб",
+            "acqua": "вода",
+            "amore": "любов",
+            "libro": "книга"
+        };
+
+        let parolaTradotta = "";
+
+        function traduci() {
+            const input = document.getElementById('input').value.toLowerCase();
+            const outputDiv = document.getElementById('output');
+
+            parolaTradotta = dizionario[input] || "(traduzione non trovata)";
+            outputDiv.innerHTML = parolaTradotta.split('').map(l => `<span class="lettera">${l}</span>`).join('');
+        }
+
+        function pronuncia() {
+            if (!parolaTradotta) return;
+            const synth = window.speechSynthesis;
+            const utter = new SpeechSynthesisUtterance(parolaTradotta);
+            utter.lang = 'uk-UA';
+            synth.speak(utter);
+        }
+
+        async function scandisci() {
+            const lettere = document.querySelectorAll('.lettera');
+            for (let i = 0; i < lettere.length; i++) {
+                lettere[i].classList.add('ingrandita');
+                pronunciaLettera(lettere[i].innerText);
+                await new Promise(r => setTimeout(r, 700));
+                lettere[i].classList.remove('ingrandita');
+            }
+        }
+
+        function pronunciaLettera(lettera) {
+            const synth = window.speechSynthesis;
+            const utter = new SpeechSynthesisUtterance(lettera);
+            utter.lang = 'uk-UA';
+            synth.speak(utter);
+        }
+    </script>
+</body>
+</html>
