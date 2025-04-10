@@ -2,74 +2,204 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <title>Traduttore ITA → UKR - SerCucTech</title>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
-        h1 { color: #2b5c9c; }
-        textarea, input, button { width: 100%; margin-top: 10px; padding: 10px; font-size: 16px; }
-        #output { font-size: 22px; margin-top: 20px; }
-        .lettera { display: inline-block; transition: font-size 0.3s; }
-        .ingrandita { font-size: 47px !important; }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Traduttore ITA → UKR - SerCucTech</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: auto; padding: 20px; }
+    input, textarea, button, select { font-size: 16px; padding: 10px; margin: 5px 0; width: 100%; }
+    #output { font-size: 24px; margin: 20px 0; }
+    .lettera { display: inline-block; transition: all 0.3s ease; padding: 3px; border-radius: 5px; }
+    .attiva { font-size: 48px !important; background-color: yellow; }
+    .playlist-box { border: 1px solid #ccc; padding: 10px; margin-top: 20px; }
+  </style>
 </head>
 <body>
-    <h1>Traduttore ITA → UKR</h1>
-    <label for="input">Inserisci parola in italiano:</label>
-    <input type="text" id="input" placeholder="es. ciao">
-    <button onclick="traduci()">Traduci</button>
-    <div id="output"></div>
-    <button onclick="pronuncia()">Pronuncia parola</button>
-    <button onclick="scandisci()">Pronuncia lettere (scandite)</button>
+  <h1>Traduttore ITA → UKR - SerCucTech</h1>
 
-    <script>
-        const dizionario = {
-            "ciao": "привіт",
-            "amico": "друг",
-            "grazie": "дякую",
-            "scuola": "школа",
-            "madre": "мати",
-            "padre": "батько",
-            "pane": "хліб",
-            "acqua": "вода",
-            "amore": "любов",
-            "libro": "книга"
+  <textarea id="input" rows="2" placeholder="Scrivi una parola o frase in italiano..."></textarea>
+  <div id="output"></div>
+
+  <button onclick="pronuncia()">Pronuncia parola</button>
+  <button onclick="scandisci()">Pronuncia lettere (scandite)</button>
+  <button onclick="salvaInPlaylist()">Salva in playlist</button>
+
+  <div class="playlist-box">
+    <h3>Playlist</h3>
+    <input id="newPlaylist" placeholder="Nuova playlist..." />
+    <button onclick="creaPlaylist()">Crea playlist</button>
+    <select id="playlistSelect" onchange="aggiornaLista()"></select>
+    <button onclick="cancellaPlaylist()">Elimina playlist</button>
+
+    <ul id="listaParole"></ul>
+
+    <button onclick="playLista()">Play</button>
+    <button onclick="pausa()">Pausa</button>
+    <button onclick="random()">Random</button>
+    <button onclick="ripeti()">Ripeti</button>
+  </div>
+
+  <script>
+    let timer = null;
+    let tradotto = "";
+    let isPausa = false;
+    let indiceCorrente = 0;
+    let intervallo = null;
+
+    const input = document.getElementById('input');
+    input.addEventListener('input', function () {
+      clearTimeout(timer);
+      timer = setTimeout(traduciOnline, 5000);
+    });
+
+    function traduciOnline() {
+      const testo = input.value;
+      if (!testo) return;
+      fetch("https://libretranslate.de/translate", {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ q: testo, source: "it", target: "uk", format: "text" })
+      })
+        .then(res => res.json())
+        .then(data => {
+          tradotto = data.translatedText;
+          mostraTradotto(tradotto);
+        })
+        .catch(err => {
+          tradotto = "(Errore nella traduzione)";
+          mostraTradotto(tradotto);
+        });
+    }
+
+    function mostraTradotto(testo) {
+      const outputDiv = document.getElementById('output');
+      outputDiv.innerHTML = testo.split('').map(l => `<span class="lettera">${l}</span>`).join('');
+    }
+
+    function pronuncia() {
+      if (!tradotto) return;
+      const synth = window.speechSynthesis;
+      const utter = new SpeechSynthesisUtterance(tradotto);
+      utter.lang = 'uk-UA';
+      synth.speak(utter);
+    }
+
+    async function scandisci() {
+      const lettere = document.querySelectorAll('.lettera');
+      for (let i = 0; i < lettere.length; i++) {
+        lettere[i].classList.add('attiva');
+        pronunciaLettera(lettere[i].innerText);
+        await new Promise(r => setTimeout(r, 700));
+        lettere[i].classList.remove('attiva');
+      }
+    }
+
+    function pronunciaLettera(lettera) {
+      const synth = window.speechSynthesis;
+      const utter = new SpeechSynthesisUtterance(lettera);
+      utter.lang = 'uk-UA';
+      synth.speak(utter);
+    }
+
+    function salvaInPlaylist() {
+      const nome = document.getElementById("playlistSelect").value;
+      if (!nome || !tradotto) return;
+      let data = JSON.parse(localStorage.getItem("playlist_" + nome)) || [];
+      data.push(tradotto);
+      localStorage.setItem("playlist_" + nome, JSON.stringify(data));
+      aggiornaLista();
+    }
+
+    function creaPlaylist() {
+      const nome = document.getElementById("newPlaylist").value;
+      if (!nome) return;
+      localStorage.setItem("playlist_" + nome, "[]");
+      caricaPlaylist();
+      document.getElementById("newPlaylist").value = "";
+    }
+
+    function caricaPlaylist() {
+      const select = document.getElementById("playlistSelect");
+      select.innerHTML = "";
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith("playlist_")) {
+          const nome = key.replace("playlist_", "");
+          const opt = document.createElement("option");
+          opt.value = nome;
+          opt.textContent = nome;
+          select.appendChild(opt);
+        }
+      }
+      aggiornaLista();
+    }
+
+    function aggiornaLista() {
+      const nome = document.getElementById("playlistSelect").value;
+      const lista = document.getElementById("listaParole");
+      lista.innerHTML = "";
+      const data = JSON.parse(localStorage.getItem("playlist_" + nome)) || [];
+      data.forEach((item, i) => {
+        const li = document.createElement("li");
+        li.textContent = item + " ";
+        const btn = document.createElement("button");
+        btn.textContent = "Cancella";
+        btn.onclick = () => {
+          data.splice(i, 1);
+          localStorage.setItem("playlist_" + nome, JSON.stringify(data));
+          aggiornaLista();
         };
+        li.appendChild(btn);
+        lista.appendChild(li);
+      });
+    }
 
-        let parolaTradotta = "";
+    function cancellaPlaylist() {
+      const nome = document.getElementById("playlistSelect").value;
+      if (nome && confirm("Vuoi eliminare la playlist?")) {
+        localStorage.removeItem("playlist_" + nome);
+        caricaPlaylist();
+      }
+    }
 
-        function traduci() {
-            const input = document.getElementById('input').value.toLowerCase();
-            const outputDiv = document.getElementById('output');
-
-            parolaTradotta = dizionario[input] || "(traduzione non trovata)";
-            outputDiv.innerHTML = parolaTradotta.split('').map(l => `<span class="lettera">${l}</span>`).join('');
+    function playLista() {
+      const nome = document.getElementById("playlistSelect").value;
+      const lista = JSON.parse(localStorage.getItem("playlist_" + nome)) || [];
+      if (!lista.length) return;
+      isPausa = false;
+      indiceCorrente = 0;
+      intervallo = setInterval(() => {
+        if (isPausa || indiceCorrente >= lista.length) {
+          clearInterval(intervallo);
+          return;
         }
+        const synth = window.speechSynthesis;
+        const utter = new SpeechSynthesisUtterance(lista[indiceCorrente]);
+        utter.lang = 'uk-UA';
+        synth.speak(utter);
+        indiceCorrente++;
+      }, 1500);
+    }
 
-        function pronuncia() {
-            if (!parolaTradotta) return;
-            const synth = window.speechSynthesis;
-            const utter = new SpeechSynthesisUtterance(parolaTradotta);
-            utter.lang = 'uk-UA';
-            synth.speak(utter);
-        }
+    function pausa() {
+      isPausa = true;
+    }
 
-        async function scandisci() {
-            const lettere = document.querySelectorAll('.lettera');
-            for (let i = 0; i < lettere.length; i++) {
-                lettere[i].classList.add('ingrandita');
-                pronunciaLettera(lettere[i].innerText);
-                await new Promise(r => setTimeout(r, 700));
-                lettere[i].classList.remove('ingrandita');
-            }
-        }
+    function random() {
+      const nome = document.getElementById("playlistSelect").value;
+      const lista = JSON.parse(localStorage.getItem("playlist_" + nome)) || [];
+      if (!lista.length) return;
+      const item = lista[Math.floor(Math.random() * lista.length)];
+      const synth = window.speechSynthesis;
+      const utter = new SpeechSynthesisUtterance(item);
+      utter.lang = 'uk-UA';
+      synth.speak(utter);
+    }
 
-        function pronunciaLettera(lettera) {
-            const synth = window.speechSynthesis;
-            const utter = new SpeechSynthesisUtterance(lettera);
-            utter.lang = 'uk-UA';
-            synth.speak(utter);
-        }
-    </script>
+    function ripeti() {
+      playLista();
+    }
+
+    window.onload = caricaPlaylist;
+  </script>
 </body>
 </html>
